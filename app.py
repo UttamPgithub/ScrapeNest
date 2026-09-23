@@ -1,6 +1,8 @@
-from flask import Flask, render_template
 import os
-
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, send_file
+import openpyxl
+from openpyxl import Workbook
 app = Flask(__name__)
 
 TEAM_MEMBERS = [
@@ -9,7 +11,7 @@ TEAM_MEMBERS = [
         "name": "Uttam Prajapati",
         "role": "Head Of Technical Department",
         "bio": "Leads core technology strategy, backend system architecture, scalable data pipelines, and technical execution across engineering teams.",
-        "skills": ["System Architecture", "Python & Backend", "Cloud & DevOps", "Database Design", "API Architecture", "Technical Leadership"],
+        "skills": ["Python Developer", "Web Scraping", "Data Extraction", "Database Design", "Automation", "Technical Leadership"],
         "github": "https://github.com",
         "linkedin": "https://linkedin.com"
     },
@@ -100,6 +102,58 @@ PROJECT_VIDEOS = [
         "tech": "Python, Requests, BeautifulSoup, MySQL"
     }
 ]
+
+# Path to the Excel file
+EXCEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_details_form.xlsx")
+
+
+def save_to_excel(interest, email, phone):
+    """Creates or appends a new lead to leads.xlsx"""
+    file_exists = os.path.exists(EXCEL_FILE)
+
+    if not file_exists:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Client Leads"
+        # Write headers
+        ws.append(["Timestamp", "Interest", "Email", "Phone Number"])
+    else:
+        wb = openpyxl.load_workbook(EXCEL_FILE)
+        ws = wb.active
+
+    # Append the new row
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ws.append([timestamp, interest, email, phone])
+
+    # Save file
+    wb.save(EXCEL_FILE)
+
+
+# API Route to handle the form submission
+@app.route("/submit-interest", methods=["POST"])
+def submit_interest():
+    data = request.get_json()
+    if not data:
+        return jsonify({"status": "error", "message": "No data received"}), 400
+
+    interest = data.get("interest", "Not Specified")
+    email = data.get("email", "N/A")
+    phone = data.get("phone", "N/A")
+
+    try:
+        save_to_excel(interest, email, phone)
+        return jsonify({"status": "success", "message": "Saved to Excel successfully!"})
+    except Exception as e:
+        print("Excel write error:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# Optional: Secret download route so you can download leads.xlsx anytime
+@app.route("/download-leads")
+def download_leads():
+    if os.path.exists(EXCEL_FILE):
+        return send_file(EXCEL_FILE, as_attachment=True, download_name="scrapenest_leads.xlsx")
+    return "No leads collected yet.", 404
 
 # Page 1: Home Page
 @app.route("/")
